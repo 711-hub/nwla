@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Auto Check Blokir (Skiddle - CodePen Ready)</title>
+<style>
+  :root{
+    --bg:#0b0f14; --card:#111826; --muted:#7d8aa5; --text:#e7eefc; --ok:#28c76f; --bad:#ff4d4f; --warn:#faae2b; --line:#22324a; --accent:#4f46e5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 ui-sans-serif,system-ui,Segoe UI,Roboto,Ubuntu}
+  header{position:sticky;top:0;background:rgba(11,15,20,.8);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);z-index:10}
+  h1{font-size:18px;margin:0;padding:14px 18px}
+  .wrap{display:grid;grid-template-columns:320px 1fr;gap:14px;padding:14px}
+  @media (max-width:980px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+  .card h2{font-size:15px;margin:0 0 10px}
+  .left{padding:14px}
+  label{display:block;color:var(--muted);margin:8px 0 6px}
+  textarea{width:100%;min-height:180px;border-radius:10px;border:1px solid var(--line);background:#0c1422;color:var(--text);padding:10px;resize:vertical}
+  input[type="number"]{width:100%;border-radius:10px;border:1px solid var(--line);background:#0c1422;color:var(--text);padding:10px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .btn{appearance:none;border:1px solid var(--line);background:#121b2b;color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer}
+  .btn:hover{border-color:#395176}
+  .btn.on{background:var(--accent);border-color:var(--accent)}
+  .btn.stop{background:#1f2937}
+  .muted{color:var(--muted)}
+  .stat{display:flex;gap:12px;flex-wrap:wrap}
+  .chip{background:#0e1626;border:1px solid var(--line);border-radius:999px;padding:6px 10px}
+  .chip b{margin-right:4px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:#b6c2df;text-align:left;background:#0f1726;position:sticky;top:0;z-index:5}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  .bar{display:flex;gap:8px;margin:10px 0 0}
+  .small{font-size:12px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .pill{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:#0e1626;color:#b6c2df}
+  .tblwrap{overflow:auto;border-radius:0 0 14px 14px}
+</style>
+</head>
+<body>
+<header><h1>Auto Check Blokir (Kominfo / TRUST+ via Skiddle)</h1></header>
+
+<div class="wrap">
+  <!-- Panel kiri -->
+  <section class="card left">
+    <h2>Daftar Link/Domain</h2>
+    <label for="urls">Masukkan URL/Domain (pisah baris, max 200)</label>
+    <textarea id="urls" placeholder="ayutogel.com
+hantogel.com
+https://sub.domain.id/path"></textarea>
+
+    <label for="interval" class="row" style="justify-content:space-between">
+      <span>Interval cek (detik)</span>
+      <span class="muted small">default 30 dtk</span>
+    </label>
+    <input id="interval" type="number" min="5" max="600" step="5" value="30"/>
+
+    <div class="bar">
+      <button id="saveList" class="btn">Simpan Daftar</button>
+      <button id="start" class="btn on">ON</button>
+      <button id="stop" class="btn stop">OFF</button>
+      <button id="reset" class="btn" title="Hapus semua data & mulai ulang">Reset</button>
+    </div>
+
+    <div class="hint">
+      • Data tersimpan lokal • Paralel terbatas • Siap CodePen (proxy CORS aktif).<br>
+      • Endpoint: <span class="pill mono" id="apiLabel"></span>
+    </div>
+
+    <div style="margin-top:12px" class="stat">
+      <span class="chip"><b>Total:</b><span id="statTotal">0</span></span>
+      <span class="chip"><b>OK:</b><span id="statOk">0</span></span>
+      <span class="chip"><b>Terblokir:</b><span id="statBad">0</span></span>
+      <span class="chip"><b>Terakhir Cek:</b><span id="statLast">-</span></span>
+    </div>
+  </section>
+
+  <!-- Panel kanan -->
+  <section class="card" style="display:flex;flex-direction:column;min-height:420px">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <h2 style="margin:0">Hasil Pemantauan</h2>
+      <span class="pill" id="statusRun">Status: berhenti</span>
+    </div>
+
+    <div class="tblwrap">
+      <table id="tblAll">
+        <thead>
+          <tr>
+            <th style="width:32px">#</th>
+            <th>Domain</th>
+            <th>Status</th>
+            <th>Sumber</th>
+            <th>Detail</th>
+            <th>Terakhir Cek</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div style="padding:12px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px">
+      <h2 style="margin:0">Terblokir</h2>
+      <span class="pill bad">Tabel domain yang terdeteksi diblokir</span>
+    </div>
+    <div class="tblwrap">
+      <table id="tblBlocked">
+        <thead>
+          <tr>
+            <th style="width:32px">#</th>
+            <th>Domain</th>
+            <th>Sumber</th>
+            <th>Alasan/Detail</th>
+            <th>Sejak</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+/** =================== KONFIGURASI =================== **/
+// Format benar: ?domain=<DOMAIN>&json=true
+function buildDirectUrl(domain){
+  return 'https://check.skiddle.id/?domain=' + encodeURIComponent(domain) + '&json=true';
+}
+
+// Agar jalan di CodePen (hindari CORS), default pakai proxy.
+// Jika kamu host sendiri (php/nginx), set USE_PROXY=false.
+const USE_PROXY = true;
+// const PROXY = 'https://api.allorigins.win/raw?url=';
+const PROXY = 'https://corsproxy.io/?';
+
+const MAX_CONCURRENT = 8;   // jumlah request paralel
+const REQ_TIMEOUT = 12000;  // ms
+
+/** ============== UTIL & PENYIAPAN DATA ============== **/
+const $ = sel => document.querySelector(sel);
+
+const store = {
+  load() {
+    const raw = localStorage.getItem('acb-data');
+    if (!raw) return { list: [], interval: 30 };
+    try { return JSON.parse(raw); } catch { return { list: [], interval: 30 }; }
+  },
+  save(data){ localStorage.setItem('acb-data', JSON.stringify(data)); }
+};
+
+function normalizeDomain(input){
+  if (!input) return null;
+  let s = String(input).trim();
+  if (!s) return null;
+  try {
+    if (/^https?:\/\//i.test(s) || /^\/\//.test(s)) {
+      const u = new URL(s.startsWith('//') ? 'http:' + s : s);
+      s = u.hostname;
+    }
+  } catch {}
+  s = s.replace(/:\d+$/,'').replace(/\.$/,'').toLowerCase();
+  if (!/^[a-z0-9.-]+$/.test(s)) return null;
+  if (!s.includes('.') && !['localhost'].includes(s)) return null;
+  s = s.replace(/^\*\./,'');
+  return s;
+}
+function nowStr(){ return new Date().toLocaleString(); }
+function clampInt(v,min,max){ return Math.max(min, Math.min(max, Math.floor(v))); }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]
+  ));
+}
+// limiter paralel
+function limitedParallel(execs, limit){
+  return new Promise((resolve) => {
+    const results = new Array(execs.length);
+    let i = 0, active = 0, done = 0;
+    const tick = () => {
+      while (active < limit && i < execs.length) {
+        const idx = i++, fn = execs[idx];
+        active++;
+        fn().then(res => { results[idx] = res; })
+             .catch(err => { results[idx] = { error: String(err) }; })
+             .finally(() => {
+               active--; done++;
+               if (done === execs.length) resolve(results);
+               else tick();
+             });
+      }
+    };
+    tick();
+  });
+}
+
+/** ============== STATE & ELEMEN DOM ============== **/
+const elUrls = $('#urls');
+const elInterval = $('#interval');
+const elSaveList = $('#saveList');
+const elStart = $('#start');
+const elStop = $('#stop');
+const elReset = $('#reset');
+const elApiLabel = $('#apiLabel');
+const elStatusRun = $('#statusRun');
+
+const elStatTotal = $('#statTotal');
+const elStatOk = $('#statOk');
+const elStatBad = $('#statBad');
+const elStatLast = $('#statLast');
+
+const tblAll = document.querySelector('#tblAll tbody');
+const tblBlocked = document.querySelector('#tblBlocked tbody');
+
+let CHECK_TIMER = null;
+let LIST = [];          // array domain unik
+let MAP = new Map();    // domain -> {blocked, lastCheck, source, reason}
+let BLOCKED_MAP = new Map(); // domain -> {since, source, reason}
+
+if (elApiLabel) {
+  elApiLabel.textContent = (USE_PROXY ? (PROXY + '(enc)') : 'https://check.skiddle.id/?domain={domain}&json=true');
+}
+
+/** ============== RENDERING ============== **/
+function renderAllTable(){
+  tblAll.innerHTML = '';
+  const rows = [];
+  let idx = 1;
+  for (const d of LIST){
+    const m = MAP.get(d) || {};
+    const status = m.blocked === true ? `<span class="bad">Terblokir</span>` :
+                   m.blocked === false ? `<span class="ok">OK</span>` :
+                   `<span class="warn">Belum dicek</span>`;
+    const src = m.source ? `<span class="mono small">${escapeHtml(m.source)}</span>` : '-';
+    const rsn = m.reason ? escapeHtml(m.reason) : '';
+    rows.push(`<tr>
+      <td class="mono">${idx++}</td>
+      <td class="mono">${escapeHtml(d)}</td>
+      <td>${status}</td>
+      <td>${src}</td>
+      <td class="small">${rsn || '-'}</td>
+      <td class="small">${m.lastCheck || '-'}</td>
+    </tr>`);
+  }
+  tblAll.innerHTML = rows.join('');
+}
+function renderBlockedTable(){
+  tblBlocked.innerHTML = '';
+  let i = 1;
+  const rows = [];
+  for (const [d, info] of BLOCKED_MAP){
+    rows.push(`<tr>
+      <td class="mono">${i++}</td>
+      <td class="mono">${escapeHtml(d)}</td>
+      <td class="small">${info.source ? escapeHtml(info.source) : '-'}</td>
+      <td class="small">${info.reason ? escapeHtml(info.reason) : '-'}</td>
+      <td class="small">${info.since || '-'}</td>
+    </tr>`);
+  }
+  tblBlocked.innerHTML = rows.join('');
+}
+function renderStats(){
+  if (elStatTotal) elStatTotal.textContent = LIST.length;
+  let ok=0,bad=0;
+  for (const d of LIST){
+    const m = MAP.get(d);
+    if (!m) continue;
+    if (m.blocked === true) bad++; else if (m.blocked === false) ok++;
+  }
+  if (elStatOk) elStatOk.textContent = ok;
+  if (elStatBad) elStatBad.textContent = bad;
+}
+
+/** ============== FETCHER ============== **/
+async function fetchJson(url){
+  const controller = new AbortController();
+  const t = setTimeout(()=>controller.abort(), REQ_TIMEOUT);
+  try{
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(t);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }catch(e){
+    clearTimeout(t);
+    throw e;
+  }
+}
+async function checkOne(domain){
+  const direct = buildDirectUrl(domain);
+  const url = USE_PROXY ? (PROXY + encodeURIComponent(direct)) : direct;
+  const data = await fetchJson(url);
+  // Data: { "<domain>": { blocked: true/false, ... } }
+  const key = Object.keys(data)[0] || domain;
+  const isBlocked = !!(data[key] && data[key].blocked === true);
+  return { blocked: isBlocked, raw: data, source: 'skiddle' };
+}
+
+/** ============== LOOP CEK ============== **/
+async function runCheckAll(){
+  if (LIST.length === 0) return;
+  if (elStatLast) elStatLast.textContent = nowStr();
+
+  const jobs = LIST.map(d => async ()=>{
+    try{
+      const got = await checkOne(d);
+      const ts = nowStr();
+      MAP.set(d, { blocked: got.blocked, source: got.source, reason: '', lastCheck: ts, raw: got.raw });
+      if (got.blocked){
+        if (!BLOCKED_MAP.has(d)) BLOCKED_MAP.set(d, { since: ts, source: got.source, reason: '' });
+      }else{
+        if (BLOCKED_MAP.has(d)) BLOCKED_MAP.delete(d);
+      }
+    }catch(e){
+      MAP.set(d, { blocked: null, source: 'error', reason: String(e?.message || e), lastCheck: nowStr() });
+    }
+  });
+
+  await limitedParallel(jobs, MAX_CONCURRENT);
+  renderAllTable();
+  renderBlockedTable();
+  renderStats();
+}
+
+/** ============== START/STOP/RESET & STATE ============== **/
+function readListFromTextarea(){
+  const lines = elUrls.value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const set = new Set();
+  for (const line of lines){
+    const dom = normalizeDomain(line);
+    if (dom) set.add(dom);
+  }
+  LIST = Array.from(set).slice(0, 200);
+}
+function fillTextareaFromList(){ elUrls.value = LIST.join('\n'); }
+function saveState(){ store.save({ list: LIST, interval: clampInt(+elInterval.value||30,5,600) }); }
+function loadState(){
+  const { list, interval } = store.load();
+  LIST = Array.isArray(list) ? list : [];
+  elInterval.value = interval || 30;
+  fillTextareaFromList();
+  renderAllTable(); renderBlockedTable(); renderStats();
+}
+function startLoop(){
+  if (LIST.length === 0) { readListFromTextarea(); saveState(); }
+  if (LIST.length === 0) { alert('Daftar domain kosong. Isi textarea lalu Simpan.'); return; }
+  const sec = clampInt(+elInterval.value || 30, 5, 600);
+  elInterval.value = sec;
+  saveState();
+  if (CHECK_TIMER) clearInterval(CHECK_TIMER);
+  CHECK_TIMER = setInterval(runCheckAll, sec*1000);
+  runCheckAll();
+  elStatusRun.textContent = `Status: berjalan (setiap ${sec} dtk)`;
+  elStatusRun.classList.remove('warn'); elStatusRun.classList.add('ok');
+}
+function stopLoop(){
+  if (CHECK_TIMER) clearInterval(CHECK_TIMER);
+  CHECK_TIMER = null;
+  elStatusRun.textContent = 'Status: berhenti';
+  elStatusRun.classList.remove('ok'); elStatusRun.classList.add('warn');
+}
+function resetAll(){
+  // hentikan loop
+  stopLoop();
+
+  // hapus state & storage
+  LIST = [];
+  MAP.clear();
+  BLOCKED_MAP.clear();
+  try { localStorage.removeItem('acb-data'); } catch(e){}
+
+  // reset UI
+  elUrls.value = '';
+  elInterval.value = 30;
+  if (elStatTotal) elStatTotal.textContent = 0;
+  if (elStatOk) elStatOk.textContent = 0;
+  if (elStatBad) elStatBad.textContent = 0;
+  if (elStatLast) elStatLast.textContent = '-';
+  tblAll.innerHTML = '';
+  tblBlocked.innerHTML = '';
+
+  elStatusRun.textContent = 'Status: berhenti';
+  elStatusRun.classList.remove('ok');
+  elStatusRun.classList.add('warn');
+}
+
+/** ============== EVENT BINDINGS ============== **/
+elSaveList.addEventListener('click', ()=>{ readListFromTextarea(); saveState(); renderAllTable(); renderBlockedTable(); renderStats(); });
+elStart.addEventListener('click', startLoop);
+elStop.addEventListener('click', stopLoop);
+elReset.addEventListener('click', ()=>{ if (confirm('Hapus semua daftar & reset dari awal?')) resetAll(); });
+
+// Init
+loadState();
+stopLoop();
+</script>
+</body>
+</html>
