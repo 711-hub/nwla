@@ -194,7 +194,7 @@ function renderAllTable(){
   for (const d of LIST){
     const m = MAP.get(d) || {};
     const status = m.blocked===true ? `<span class="bad">Terblokir</span>` :
-                   m.blocked===false ? `<span class="ok">OK</span>` :
+                   m.blocked===false ? `<span class="ok">Link Aman</span>` :
                                        `<span class="warn">Belum dicek</span>`;
     rows.push(`<tr>
       <td class="mono">${i++}</td>
